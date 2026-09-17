@@ -17,14 +17,14 @@ Repository: [github.com/mtb-coding/local-events](https://github.com/mtb-coding/l
 3. Select an iOS 17+ Simulator (e.g. iPhone 16).
 4. Press **Run** (⌘R).
 
-On first launch you’ll see a short onboarding screen that explains location access. You can allow location or tap **Maybe later** — the Discover feed still works using an NYC default center.
+On first launch you’ll see a short onboarding screen that explains location access. You can allow location or tap **Maybe later** — Discover then shows the location-needed state until Location is enabled.
 
 > **Signing:** The project uses Automatic signing with bundle id `com.mtbcoding.Nearly`. For a physical device, pick your Team in the Nearly target’s Signing & Capabilities tab. Simulator runs do not require a paid team.
 
 ## What's new (v1.1)
 
-- **Discover phases** — `loading` | `populated` | `empty(radiusMiles)` | `locationDenied` | `failed(retryable)` (not a single error string)
-- **Rules** — denied/off → locationDenied + Settings CTA (never empty); reload keeps prior events; zero results → “Nothing within X mi”; API fail → retryable failed; Mock → quiet Sample events badge
+- **Discover phases** — `loading` (skeletons) | `populated` | `empty(radiusMiles)` | `locationDenied` | `failed(retryable)`
+- **Designer copy/CTAs** — Location needed → Open Settings only; empty → Widen radius; failed → Retry; Sample events chip when Mock
 - **Radius** — 5 / 10 / 25 / 50 mi into `EventQuery` (no hardcoded 25 km)
 - **Mapper nits** — skip missing/0,0 coords; `stateCode` in address; decode `dates.end`
 
@@ -32,12 +32,11 @@ On first launch you’ll see a short onboarding screen that explains location ac
 
 - **Onboarding** — location permission explanation + CoreLocation request
 - **Tabs** — Discover | Saved
-- **Discover** — nearby event list (title, date/time, venue/neighborhood, distance or “Nearby”, category chip), search, category filter
+- **Discover** — nearby event list, search, category filter, user radius
 - **Event detail** — description, when/where, MapKit map with pin, Save / Unsave
 - **Saved** — bookmarked events with empty state; swipe to unsave
 - **Persistence** — SwiftData stores full event snapshots
 - **Mock data** — 18 events near NYC via `EventService` + `MockEventService`
-- **Location denied** — dedicated phase with Settings CTA (not conflated with empty results)
 
 ## Project structure
 
@@ -48,7 +47,7 @@ Nearly/
   ContentView.swift
   Info.plist
   Assets.xcassets/
-  Models/          Event, EventCategory, SavedEvent (SwiftData)
+  Models/          Event, EventCategory, EventQuery, SavedEvent (SwiftData)
   Services/        EventService, MockEventService, LocationManager
   ViewModels/      DiscoverViewModel, SavedStore
   Views/           Onboarding, MainTab, Discover/, Detail/, Saved/
@@ -56,7 +55,7 @@ Nearly/
 
 ## Try the happy path
 
-1. Complete (or skip) onboarding.
+1. Complete onboarding and allow Location (or enable later in Settings).
 2. **Discover** → browse the list → open an event.
 3. Tap **Save Event** → switch to **Saved**.
 4. Open the saved event or swipe to unsave.

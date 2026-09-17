@@ -51,8 +51,9 @@ struct DiscoverView: View {
             }
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 0) {
-                    if viewModel.isSampleData, viewModel.phase == .populated {
-                        sampleDataBadge
+                    if viewModel.isSampleData,
+                       viewModel.phase == .populated || viewModel.phase == .loading {
+                        sampleEventsChip
                     }
                     if viewModel.phase != .locationDenied {
                         radiusPicker(selection: $viewModel.radiusMiles)
@@ -71,11 +72,51 @@ struct DiscoverView: View {
         }
     }
 
-    // MARK: - Phase views
+    // MARK: - Phase views (Designer 1:1)
 
+    /// First load: skeleton rows matching card geometry. Never used on reload with data.
     private var loadingView: some View {
-        ProgressView("Finding events…")
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        List {
+            ForEach(0..<4, id: \.self) { _ in
+                skeletonRow
+            }
+        }
+        .listStyle(.plain)
+        .disabled(true)
+        .redacted(reason: .placeholder)
+    }
+
+    private var skeletonRow: some View {
+        HStack(alignment: .top, spacing: 14) {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.secondary.opacity(0.18))
+                .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.18))
+                    .frame(height: 16)
+                    .frame(maxWidth: 220)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.14))
+                    .frame(height: 12)
+                    .frame(maxWidth: 140)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.14))
+                    .frame(height: 12)
+                    .frame(maxWidth: 180)
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.secondary.opacity(0.14))
+                        .frame(width: 64, height: 22)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.secondary.opacity(0.14))
+                        .frame(width: 52, height: 22)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityLabel("Loading event")
     }
 
     @ViewBuilder
@@ -100,7 +141,9 @@ struct DiscoverView: View {
             .overlay(alignment: .top) {
                 if viewModel.isRefreshing {
                     ProgressView()
-                        .padding(8)
+                        .controlSize(.small)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                         .background(.ultraThinMaterial, in: Capsule())
                         .padding(.top, 8)
                 }
@@ -110,51 +153,40 @@ struct DiscoverView: View {
 
     private func emptyView(radiusMiles: Int) -> some View {
         ContentUnavailableView {
-            Label("Nothing within \(radiusMiles) mi", systemImage: "mappin.and.ellipse")
+            Label("Nothing within \(radiusMiles) mi.", systemImage: "mappin.and.ellipse")
         } description: {
-            Text("Try widening the radius or picking another category.")
+            Text("Widen your search to see more nearby.")
         } actions: {
-            if let next = nextWiderRadius(from: radiusMiles) {
-                Button("Widen to \(next) mi") {
-                    viewModel.radiusMiles = next
-                }
-                .buttonStyle(.borderedProminent)
+            Button("Widen radius") {
+                viewModel.widenRadius()
             }
+            .buttonStyle(.borderedProminent)
+            .disabled(viewModel.nextWiderRadiusMiles == nil)
         }
     }
 
+    /// Full-screen; primary action is Open Settings only.
     private var locationDeniedView: some View {
         ContentUnavailableView {
-            Label("Location needed", systemImage: "location.slash")
+            Label("Location needed.", systemImage: "location.slash")
         } description: {
-            Text("Turn on Location to discover events near you. We don’t treat this as an empty city.")
+            Text("Turn on location so we can show what’s near you.")
         } actions: {
-            if locationManager.authorizationStatus == .notDetermined {
-                Button("Enable Location") {
-                    locationManager.requestPermission()
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                Button("Open Settings") {
-                    openSystemSettings()
-                }
-                .buttonStyle(.borderedProminent)
+            Button("Open Settings.") {
+                openSystemSettings()
             }
+            .buttonStyle(.borderedProminent)
         }
     }
 
     private func failedView(retryable: Bool) -> some View {
         ContentUnavailableView {
-            Label("Couldn't load events", systemImage: "exclamationmark.triangle")
+            Label("Couldn't load events.", systemImage: "exclamationmark.triangle")
         } description: {
-            Text(
-                retryable
-                    ? "Something went wrong talking to the events service. This doesn’t mean your area is empty."
-                    : "Something went wrong talking to the events service."
-            )
+            Text("Something went wrong. Try again.")
         } actions: {
             if retryable {
-                Button("Try Again") {
+                Button("Retry") {
                     Task { await reloadEvents() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -162,7 +194,7 @@ struct DiscoverView: View {
         }
     }
 
-    private var sampleDataBadge: some View {
+    private var sampleEventsChip: some View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
             Text("Sample events")
@@ -173,6 +205,7 @@ struct DiscoverView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
         .background(Color(.secondarySystemBackground))
+        .accessibilityLabel("Sample events")
     }
 
     private func radiusPicker(selection: Binding<Int>) -> some View {
@@ -190,10 +223,6 @@ struct DiscoverView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(.bar)
-    }
-
-    private func nextWiderRadius(from miles: Int) -> Int? {
-        DiscoverViewModel.radiusMilesOptions.first { $0 > miles }
     }
 
     private func openSystemSettings() {

@@ -19,7 +19,7 @@ final class DiscoverViewModel {
 
     private let eventService: any EventService
 
-    /// Quiet “Sample events” when the active service is Mock.
+    /// Quiet “Sample events” chip when the active service is Mock.
     let isSampleData: Bool
 
     var events: [Event] = []
@@ -81,6 +81,11 @@ final class DiscoverViewModel {
         return "Try another category or clear your search."
     }
 
+    /// Next wider preset, if any (for empty-state CTA).
+    var nextWiderRadiusMiles: Int? {
+        Self.radiusMilesOptions.first { $0 > radiusMiles }
+    }
+
     /// In-memory cache hit for a loaded event.
     func cachedEvent(id: String) -> Event? {
         events.first { $0.id == id }
@@ -99,6 +104,13 @@ final class DiscoverViewModel {
             // Fall through to Saved hydrate (offline / API miss).
         }
         return savedStore?.event(id: id)
+    }
+
+    /// Bumps radius to the next preset (no-op at max). Triggers UI `onChange` reload.
+    func widenRadius() {
+        if let next = nextWiderRadiusMiles {
+            radiusMiles = next
+        }
     }
 
     func loadEvents(near coordinate: CLLocationCoordinate2D, usingDefaultLocation: Bool) async {
@@ -124,7 +136,15 @@ final class DiscoverViewModel {
         usingDefaultLocation: Bool,
         eventService: any EventService
     ) async {
-        // Keep prior events on reload — never flash empty while refreshing.
+        // Location denied/off → full-screen locationDenied (never empty).
+        if usingDefaultLocation {
+            guard token == loadGeneration else { return }
+            isRefreshing = false
+            phase = .locationDenied
+            return
+        }
+
+        // Keep prior events on reload — never clear to empty while refreshing.
         isRefreshing = true
         if events.isEmpty {
             phase = .loading
@@ -142,11 +162,11 @@ final class DiscoverViewModel {
             guard token == loadGeneration, !Task.isCancelled else { return }
             // Success replace only.
             events = result
-            phase = Self.phaseAfterSuccess(
-                events: result,
-                radiusMiles: radiusMiles,
-                usingDefaultLocation: usingDefaultLocation
-            )
+            if result.isEmpty {
+                phase = .empty(radiusMiles: radiusMiles)
+            } else {
+                phase = .populated
+            }
         } catch is CancellationError {
             return
         } catch {
@@ -160,21 +180,6 @@ final class DiscoverViewModel {
 
         guard token == loadGeneration else { return }
         isRefreshing = false
-    }
-
-    /// Location denied/off + zero results → `.locationDenied` (never `.empty`).
-    private static func phaseAfterSuccess(
-        events: [Event],
-        radiusMiles: Int,
-        usingDefaultLocation: Bool
-    ) -> DiscoverPhase {
-        if events.isEmpty {
-            if usingDefaultLocation {
-                return .locationDenied
-            }
-            return .empty(radiusMiles: radiusMiles)
-        }
-        return .populated
     }
 
     private static func clampedRadiusMiles(_ value: Int) -> Int {
