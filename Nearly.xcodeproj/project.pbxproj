@@ -7,6 +7,11 @@
 	objects = {
 
 		073FEF0C578358FAEB1F5C0E = {isa = PBXBuildFile; fileRef = 665D969078FD1A86A7627BEA; };
+		B01E5E01CE5F2001B0000009 = {isa = PBXBuildFile; fileRef = B01E5E01CE5F2001B000000A; };
+		B01E5E01CE5F2001B0000007 = {isa = PBXBuildFile; fileRef = B01E5E01CE5F2001B0000008; };
+		B01E5E01CE5F2001B0000005 = {isa = PBXBuildFile; fileRef = B01E5E01CE5F2001B0000006; };
+		B01E5E01CE5F2001B0000003 = {isa = PBXBuildFile; fileRef = B01E5E01CE5F2001B0000004; };
+		B01E5E01CE5F2001B0000001 = {isa = PBXBuildFile; fileRef = B01E5E01CE5F2001B0000002; };
 		82FDB5029E6F8623BBAF7240 = {isa = PBXBuildFile; fileRef = CB3E48D4B9BABC5FB05CF463; };
 		4F74A05237D4B88CD60847A6 = {isa = PBXBuildFile; fileRef = A8A34AF51CEFFE05AD869F0B; };
 		8419D86A284D8355883454C2 = {isa = PBXBuildFile; fileRef = 808E754C996A7E01183FACF0; };
@@ -26,6 +31,11 @@
 		A6070B9CF28E71610AA267AE = {isa = PBXBuildFile; fileRef = 9F317FD863F649489C0BF83D; };
 
 		665D969078FD1A86A7627BEA = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearlyApp.swift; sourceTree = "<group>"; };
+		B01E5E01CE5F2001B000000A = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventServiceEnvironment.swift; sourceTree = "<group>"; };
+		B01E5E01CE5F2001B0000008 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventServiceFactory.swift; sourceTree = "<group>"; };
+		B01E5E01CE5F2001B0000006 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TicketmasterEventService.swift; sourceTree = "<group>"; };
+		B01E5E01CE5F2001B0000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventSource.swift; sourceTree = "<group>"; };
+		B01E5E01CE5F2001B0000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventQuery.swift; sourceTree = "<group>"; };
 		CB3E48D4B9BABC5FB05CF463 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A8A34AF51CEFFE05AD869F0B = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Event.swift; sourceTree = "<group>"; };
 		808E754C996A7E01183FACF0 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCategory.swift; sourceTree = "<group>"; };
@@ -91,6 +101,8 @@
 				A8A34AF51CEFFE05AD869F0B,
 				808E754C996A7E01183FACF0,
 				84E1AB04CBBE90824E00E07D,
+				B01E5E01CE5F2001B0000002,
+				B01E5E01CE5F2001B0000004,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -101,6 +113,9 @@
 				723EEA0A2B9F4780B4B3A1B6,
 				E3E601BE0E2099A21BBAFAA6,
 				1371A28DF63182F89F1E05DF,
+				B01E5E01CE5F2001B0000006,
+				B01E5E01CE5F2001B0000008,
+				B01E5E01CE5F2001B000000A,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -214,6 +229,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				073FEF0C578358FAEB1F5C0E,
+				B01E5E01CE5F2001B0000009,
+				B01E5E01CE5F2001B0000007,
+				B01E5E01CE5F2001B0000005,
+				B01E5E01CE5F2001B0000003,
+				B01E5E01CE5F2001B0000001,
 				82FDB5029E6F8623BBAF7240,
 				4F74A05237D4B88CD60847A6,
 				8419D86A284D8355883454C2,
