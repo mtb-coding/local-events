@@ -81,7 +81,7 @@ struct DiscoverView: View {
                     if viewModel.showingLocationDeniedBanner {
                         locationBanner
                     }
-                    radiusPicker
+                    radiusPicker(selection: $viewModel.radiusMiles)
                 }
             }
             .refreshable {
@@ -96,13 +96,12 @@ struct DiscoverView: View {
         }
     }
 
-    private var radiusPicker: some View {
-        @Bindable var viewModel = viewModel
-        return VStack(alignment: .leading, spacing: 6) {
+    private func radiusPicker(selection: Binding<Int>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Radius")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Picker("Radius", selection: $viewModel.radiusMiles) {
+            Picker("Radius", selection: selection) {
                 ForEach(DiscoverViewModel.radiusMilesOptions, id: \.self) { miles in
                     Text("\(miles) mi").tag(miles)
                 }
