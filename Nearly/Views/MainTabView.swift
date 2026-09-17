@@ -19,27 +19,22 @@ struct MainTabView: View {
         }
         .task {
             locationManager.refreshAuthorization()
-            await discoverViewModel.loadEvents(
-                near: locationManager.coordinateForSearch,
-                usingDefaultLocation: locationManager.usingDefaultLocation
-            )
+            await reloadDiscover()
         }
         .onChange(of: locationManager.currentLocation?.coordinate.latitude) { _, _ in
-            Task {
-                await discoverViewModel.loadEvents(
-                    near: locationManager.coordinateForSearch,
-                    usingDefaultLocation: locationManager.usingDefaultLocation
-                )
-            }
+            Task { await reloadDiscover() }
         }
         .onChange(of: locationManager.authorizationStatus) { _, _ in
             locationManager.startUpdatingIfAuthorized()
-            Task {
-                await discoverViewModel.loadEvents(
-                    near: locationManager.coordinateForSearch,
-                    usingDefaultLocation: locationManager.usingDefaultLocation
-                )
-            }
+            Task { await reloadDiscover() }
         }
+    }
+
+    private func reloadDiscover() async {
+        await discoverViewModel.loadEvents(
+            near: locationManager.coordinateForSearch,
+            usingDefaultLocation: locationManager.usingDefaultLocation,
+            isAuthorized: locationManager.isAuthorized
+        )
     }
 }

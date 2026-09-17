@@ -113,7 +113,14 @@ final class DiscoverViewModel {
         }
     }
 
-    func loadEvents(near coordinate: CLLocationCoordinate2D, usingDefaultLocation: Bool) async {
+    /// - Parameters:
+    ///   - isAuthorized: Core Location authorized; when false → `.locationDenied` (never empty).
+    ///   - usingDefaultLocation: authorized but no fix yet → wait in `.loading` (don’t fetch NYC).
+    func loadEvents(
+        near coordinate: CLLocationCoordinate2D,
+        usingDefaultLocation: Bool,
+        isAuthorized: Bool
+    ) async {
         loadTask?.cancel()
         loadGeneration += 1
         let token = loadGeneration
@@ -123,6 +130,7 @@ final class DiscoverViewModel {
                 token: token,
                 coordinate: coordinate,
                 usingDefaultLocation: usingDefaultLocation,
+                isAuthorized: isAuthorized,
                 eventService: eventService
             )
         }
@@ -134,13 +142,24 @@ final class DiscoverViewModel {
         token: Int,
         coordinate: CLLocationCoordinate2D,
         usingDefaultLocation: Bool,
+        isAuthorized: Bool,
         eventService: any EventService
     ) async {
-        // Location denied/off → full-screen locationDenied (never empty).
-        if usingDefaultLocation {
+        // Denied / off → full-screen locationDenied (never empty).
+        if !isAuthorized {
             guard token == loadGeneration else { return }
             isRefreshing = false
             phase = .locationDenied
+            return
+        }
+
+        // Authorized but no GPS fix yet — keep/show loading; wait for location update.
+        if usingDefaultLocation {
+            guard token == loadGeneration else { return }
+            isRefreshing = false
+            if events.isEmpty {
+                phase = .loading
+            }
             return
         }
 

@@ -17,14 +17,15 @@ Repository: [github.com/mtb-coding/local-events](https://github.com/mtb-coding/l
 3. Select an iOS 17+ Simulator (e.g. iPhone 16).
 4. Press **Run** (⌘R).
 
-On first launch you’ll see a short onboarding screen that explains location access. You can allow location or tap **Maybe later** — Discover then shows the location-needed state until Location is enabled.
+On first launch you’ll see a short onboarding screen that explains location access. Allow Location to load nearby events; if Location is off/denied, Discover shows a full-screen **Location needed** state with **Open Settings.**
 
 > **Signing:** The project uses Automatic signing with bundle id `com.mtbcoding.Nearly`. For a physical device, pick your Team in the Nearly target’s Signing & Capabilities tab. Simulator runs do not require a paid team.
 
 ## What's new (v1.1)
 
-- **Discover phases** — `loading` (skeletons) | `populated` | `empty(radiusMiles)` | `locationDenied` | `failed(retryable)`
-- **Designer copy/CTAs** — Location needed → Open Settings only; empty → Widen radius; failed → Retry; Sample events chip when Mock
+- **Discover phases** — `loading` (card skeletons) | `populated` | `empty(radiusMiles)` | `locationDenied` | `failed(retryable)`
+- **Designer CTAs** — Location needed → Open Settings. only; empty → Widen radius; failed → Retry; Sample events chip when Mock
+- **Reload** — keeps prior list + thin top progress (never flashes empty)
 - **Radius** — 5 / 10 / 25 / 50 mi into `EventQuery` (no hardcoded 25 km)
 - **Mapper nits** — skip missing/0,0 coords; `stateCode` in address; decode `dates.end`
 
@@ -55,7 +56,7 @@ Nearly/
 
 ## Try the happy path
 
-1. Complete onboarding and allow Location (or enable later in Settings).
+1. Complete onboarding and allow Location.
 2. **Discover** → browse the list → open an event.
 3. Tap **Save Event** → switch to **Saved**.
 4. Open the saved event or swipe to unsave.

@@ -74,7 +74,7 @@ struct DiscoverView: View {
 
     // MARK: - Phase views (Designer 1:1)
 
-    /// First load: skeleton rows matching card geometry. Never used on reload with data.
+    /// First load: 4 skeleton rows matching card geometry. Reload-with-data never uses this.
     private var loadingView: some View {
         List {
             ForEach(0..<4, id: \.self) { _ in
@@ -165,12 +165,12 @@ struct DiscoverView: View {
         }
     }
 
-    /// Full-screen; primary action is Open Settings only.
+    /// Full-screen; primary action is Open Settings. only.
     private var locationDeniedView: some View {
         ContentUnavailableView {
             Label("Location needed.", systemImage: "location.slash")
         } description: {
-            Text("Turn on location so we can show what’s near you.")
+            Text("Turn on location so we can show what's near you.")
         } actions: {
             Button("Open Settings.") {
                 openSystemSettings()
@@ -233,7 +233,8 @@ struct DiscoverView: View {
     private func reloadEvents() async {
         await viewModel.loadEvents(
             near: locationManager.coordinateForSearch,
-            usingDefaultLocation: locationManager.usingDefaultLocation
+            usingDefaultLocation: locationManager.usingDefaultLocation,
+            isAuthorized: locationManager.isAuthorized
         )
     }
 }
