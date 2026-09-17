@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>TicketmasterAPIKey</key>
+	<string></string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Nearly uses your location to show nearby local events and estimate distances. If you decline, you’ll still see events centered on New York City.</string>
 	<key>UIApplicationSceneManifest</key>
