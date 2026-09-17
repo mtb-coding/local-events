@@ -5,6 +5,14 @@ struct MainTabView: View {
     @Environment(DiscoverViewModel.self) private var discoverViewModel
     @Environment(SavedStore.self) private var savedStore
 
+    /// Combined lat/lon identity so longitude-only moves also reload Discover.
+    private var coordinateIdentity: String {
+        guard let coordinate = locationManager.currentLocation?.coordinate else {
+            return "nil"
+        }
+        return "\(coordinate.latitude),\(coordinate.longitude)"
+    }
+
     var body: some View {
         TabView {
             DiscoverView()
@@ -21,7 +29,7 @@ struct MainTabView: View {
             locationManager.refreshAuthorization()
             await reloadDiscover()
         }
-        .onChange(of: locationManager.currentLocation?.coordinate.latitude) { _, _ in
+        .onChange(of: coordinateIdentity) { _, _ in
             Task { await reloadDiscover() }
         }
         .onChange(of: locationManager.authorizationStatus) { _, _ in
@@ -34,7 +42,7 @@ struct MainTabView: View {
         await discoverViewModel.loadEvents(
             near: locationManager.coordinateForSearch,
             usingDefaultLocation: locationManager.usingDefaultLocation,
-            isAuthorized: locationManager.isAuthorized
+            authorizationStatus: locationManager.authorizationStatus
         )
     }
 }
