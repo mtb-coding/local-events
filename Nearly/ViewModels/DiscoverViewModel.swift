@@ -2,13 +2,13 @@ import Foundation
 import CoreLocation
 import Observation
 
-/// Explicit Discover UI surface after a load attempt.
-enum DiscoverContentState: Equatable {
+/// Discover load/UI phase (Code / Research / Designer).
+enum DiscoverPhase: Equatable {
     case loading
-    case error(String)
-    case emptyFeed
-    case emptyFilter
-    case results
+    case populated
+    case empty(radiusMiles: Int)
+    case locationDenied
+    case failed(retryable: Bool)
 }
 
 @Observable
@@ -19,12 +19,15 @@ final class DiscoverViewModel {
 
     private let eventService: any EventService
 
+    /// Quiet “Sample events” when the active service is Mock.
+    let isSampleData: Bool
+
     var events: [Event] = []
-    var isLoading = false
-    var errorMessage: String?
+    var phase: DiscoverPhase = .loading
+    /// True while a fetch is in flight (may keep showing prior `.populated` list).
+    var isRefreshing = false
     var searchText = ""
     var selectedCategory: EventCategory?
-    var showingLocationDeniedBanner = false
 
     /// User-controlled search radius in miles (persisted).
     var radiusMiles: Int {
@@ -48,37 +51,12 @@ final class DiscoverViewModel {
 
     init(eventService: any EventService) {
         self.eventService = eventService
+        self.isSampleData = eventService is MockEventService
         let stored = UserDefaults.standard.object(forKey: Self.radiusMilesKey) as? Int
         self.radiusMiles = Self.clampedRadiusMiles(stored ?? 25)
     }
 
-    var contentState: DiscoverContentState {
-        if isLoading && events.isEmpty {
-            return .loading
-        }
-        if let errorMessage, events.isEmpty {
-            return .error(errorMessage)
-        }
-        if events.isEmpty {
-            return .emptyFeed
-        }
-        if filteredEvents.isEmpty {
-            return .emptyFilter
-        }
-        return .results
-    }
-
-    var emptyFilterMessage: String {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !query.isEmpty {
-            return "Try another search term or clear the search field."
-        }
-        if selectedCategory != nil {
-            return "Try another category or choose All categories."
-        }
-        return "Try another category or clear your search."
-    }
-
+    /// Client-side search filter over the last successful fetch.
     var filteredEvents: [Event] {
         events.filter { event in
             let matchesCategory = selectedCategory.map { event.category == $0 } ?? true
@@ -90,6 +68,17 @@ final class DiscoverViewModel {
                 || event.category.rawValue.localizedCaseInsensitiveContains(query)
             return matchesCategory && matchesSearch
         }
+    }
+
+    var emptyFilterMessage: String {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            return "Try another search term or clear the search field."
+        }
+        if selectedCategory != nil {
+            return "Try another category or choose All categories."
+        }
+        return "Try another category or clear your search."
     }
 
     /// In-memory cache hit for a loaded event.
@@ -135,9 +124,11 @@ final class DiscoverViewModel {
         usingDefaultLocation: Bool,
         eventService: any EventService
     ) async {
-        isLoading = true
-        errorMessage = nil
-        showingLocationDeniedBanner = usingDefaultLocation
+        // Keep prior events on reload — never flash empty while refreshing.
+        isRefreshing = true
+        if events.isEmpty {
+            phase = .loading
+        }
 
         let query = EventQuery(
             coordinate: coordinate,
@@ -149,16 +140,41 @@ final class DiscoverViewModel {
         do {
             let result = try await eventService.fetchNearbyEvents(query)
             guard token == loadGeneration, !Task.isCancelled else { return }
+            // Success replace only.
             events = result
+            phase = Self.phaseAfterSuccess(
+                events: result,
+                radiusMiles: radiusMiles,
+                usingDefaultLocation: usingDefaultLocation
+            )
         } catch is CancellationError {
             return
         } catch {
             guard token == loadGeneration, !Task.isCancelled else { return }
-            errorMessage = "Couldn't load events. Pull to refresh or tap Try Again."
+            // Hard failure with nothing to show → failed (not empty).
+            // Soft failure with prior list → keep events + populated.
+            if events.isEmpty {
+                phase = .failed(retryable: true)
+            }
         }
 
         guard token == loadGeneration else { return }
-        isLoading = false
+        isRefreshing = false
+    }
+
+    /// Location denied/off + zero results → `.locationDenied` (never `.empty`).
+    private static func phaseAfterSuccess(
+        events: [Event],
+        radiusMiles: Int,
+        usingDefaultLocation: Bool
+    ) -> DiscoverPhase {
+        if events.isEmpty {
+            if usingDefaultLocation {
+                return .locationDenied
+            }
+            return .empty(radiusMiles: radiusMiles)
+        }
+        return .populated
     }
 
     private static func clampedRadiusMiles(_ value: Int) -> Int {

@@ -10,44 +10,17 @@ struct DiscoverView: View {
 
         NavigationStack {
             Group {
-                switch viewModel.contentState {
+                switch viewModel.phase {
                 case .loading:
-                    ProgressView("Finding events…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .error(let message):
-                    ContentUnavailableView {
-                        Label("Something went wrong", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(message)
-                    } actions: {
-                        Button("Try Again") {
-                            Task { await reloadEvents() }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                case .emptyFeed:
-                    ContentUnavailableView(
-                        "No events nearby",
-                        systemImage: "mappin.and.ellipse",
-                        description: Text("Nothing in this radius yet. Try a larger radius or another category.")
-                    )
-                case .emptyFilter:
-                    ContentUnavailableView(
-                        "No events match",
-                        systemImage: "magnifyingglass",
-                        description: Text(viewModel.emptyFilterMessage)
-                    )
-                case .results:
-                    List(viewModel.filteredEvents) { event in
-                        NavigationLink(value: event) {
-                            EventRowView(
-                                event: event,
-                                userLocation: locationManager.isAuthorized ? locationManager.currentLocation : nil,
-                                isSaved: savedStore.isSaved(event.id)
-                            )
-                        }
-                    }
-                    .listStyle(.plain)
+                    loadingView
+                case .populated:
+                    populatedView
+                case .empty(let radiusMiles):
+                    emptyView(radiusMiles: radiusMiles)
+                case .locationDenied:
+                    locationDeniedView
+                case .failed(let retryable):
+                    failedView(retryable: retryable)
                 }
             }
             .navigationTitle("Discover")
@@ -78,10 +51,12 @@ struct DiscoverView: View {
             }
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 0) {
-                    if viewModel.showingLocationDeniedBanner {
-                        locationBanner
+                    if viewModel.isSampleData, viewModel.phase == .populated {
+                        sampleDataBadge
                     }
-                    radiusPicker(selection: $viewModel.radiusMiles)
+                    if viewModel.phase != .locationDenied {
+                        radiusPicker(selection: $viewModel.radiusMiles)
+                    }
                 }
             }
             .refreshable {
@@ -94,6 +69,110 @@ struct DiscoverView: View {
                 Task { await reloadEvents() }
             }
         }
+    }
+
+    // MARK: - Phase views
+
+    private var loadingView: some View {
+        ProgressView("Finding events…")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var populatedView: some View {
+        if viewModel.filteredEvents.isEmpty {
+            ContentUnavailableView(
+                "No events match",
+                systemImage: "magnifyingglass",
+                description: Text(viewModel.emptyFilterMessage)
+            )
+        } else {
+            List(viewModel.filteredEvents) { event in
+                NavigationLink(value: event) {
+                    EventRowView(
+                        event: event,
+                        userLocation: locationManager.isAuthorized ? locationManager.currentLocation : nil,
+                        isSaved: savedStore.isSaved(event.id)
+                    )
+                }
+            }
+            .listStyle(.plain)
+            .overlay(alignment: .top) {
+                if viewModel.isRefreshing {
+                    ProgressView()
+                        .padding(8)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(.top, 8)
+                }
+            }
+        }
+    }
+
+    private func emptyView(radiusMiles: Int) -> some View {
+        ContentUnavailableView {
+            Label("Nothing within \(radiusMiles) mi", systemImage: "mappin.and.ellipse")
+        } description: {
+            Text("Try widening the radius or picking another category.")
+        } actions: {
+            if let next = nextWiderRadius(from: radiusMiles) {
+                Button("Widen to \(next) mi") {
+                    viewModel.radiusMiles = next
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    private var locationDeniedView: some View {
+        ContentUnavailableView {
+            Label("Location needed", systemImage: "location.slash")
+        } description: {
+            Text("Turn on Location to discover events near you. We don’t treat this as an empty city.")
+        } actions: {
+            if locationManager.authorizationStatus == .notDetermined {
+                Button("Enable Location") {
+                    locationManager.requestPermission()
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button("Open Settings") {
+                    openSystemSettings()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    private func failedView(retryable: Bool) -> some View {
+        ContentUnavailableView {
+            Label("Couldn't load events", systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(
+                retryable
+                    ? "Something went wrong talking to the events service. This doesn’t mean your area is empty."
+                    : "Something went wrong talking to the events service."
+            )
+        } actions: {
+            if retryable {
+                Button("Try Again") {
+                    Task { await reloadEvents() }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    private var sampleDataBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+            Text("Sample events")
+                .font(.caption.weight(.semibold))
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color(.secondarySystemBackground))
     }
 
     private func radiusPicker(selection: Binding<Int>) -> some View {
@@ -113,27 +192,13 @@ struct DiscoverView: View {
         .background(.bar)
     }
 
-    private var locationBanner: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "location.slash")
-                .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Showing NYC defaults")
-                    .font(.subheadline.weight(.semibold))
-                Text("Distances need location access. Enable Location in Settings for nearby sorting.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            if locationManager.authorizationStatus == .notDetermined {
-                Button("Enable") {
-                    locationManager.requestPermission()
-                }
-                .font(.caption.weight(.semibold))
-            }
-        }
-        .padding(12)
-        .background(.orange.opacity(0.12))
+    private func nextWiderRadius(from miles: Int) -> Int? {
+        DiscoverViewModel.radiusMilesOptions.first { $0 > miles }
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     private func reloadEvents() async {

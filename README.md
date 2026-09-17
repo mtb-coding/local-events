@@ -23,9 +23,10 @@ On first launch you’ll see a short onboarding screen that explains location ac
 
 ## What's new (v1.1)
 
-- **Discover states** — loading, empty feed, empty search/filter, and error with retry
-- **Radius control** — 5 / 10 / 25 / 50 mi picker (no hardcoded 25 km); category passed into `EventQuery`
-- **Mapper nits** — skip missing/0,0 coords; include `stateCode` in address; decode `dates.end` when present
+- **Discover phases** — `loading` | `populated` | `empty(radiusMiles)` | `locationDenied` | `failed(retryable)` (not a single error string)
+- **Rules** — denied/off → locationDenied + Settings CTA (never empty); reload keeps prior events; zero results → “Nothing within X mi”; API fail → retryable failed; Mock → quiet Sample events badge
+- **Radius** — 5 / 10 / 25 / 50 mi into `EventQuery` (no hardcoded 25 km)
+- **Mapper nits** — skip missing/0,0 coords; `stateCode` in address; decode `dates.end`
 
 ## v1 features
 
@@ -36,7 +37,7 @@ On first launch you’ll see a short onboarding screen that explains location ac
 - **Saved** — bookmarked events with empty state; swipe to unsave
 - **Persistence** — SwiftData stores full event snapshots
 - **Mock data** — 18 events near NYC via `EventService` + `MockEventService`
-- **Location denied** — feed still loads from NYC center; banner notes that distances need location
+- **Location denied** — dedicated phase with Settings CTA (not conflated with empty results)
 
 ## Project structure
 
