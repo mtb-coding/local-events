@@ -130,6 +130,7 @@ struct TicketmasterEventDTO: Decodable {
 
 struct TicketmasterDates: Decodable {
     let start: TicketmasterStart?
+    let end: TicketmasterStart?
     let status: TicketmasterStatus?
 }
 
@@ -151,6 +152,11 @@ struct TicketmasterClassification: Decodable {
 
 struct TicketmasterNamed: Decodable { let name: String? }
 
+struct TicketmasterState: Decodable {
+    let name: String?
+    let stateCode: String?
+}
+
 struct TicketmasterImage: Decodable {
     let url: String?
     let ratio: String?
@@ -166,7 +172,7 @@ struct TicketmasterEventEmbedded: Decodable {
 struct TicketmasterVenueDTO: Decodable {
     let name: String?
     let city: TicketmasterNamed?
-    let state: TicketmasterNamed?
+    let state: TicketmasterState?
     let address: TicketmasterAddress?
     let location: TicketmasterLocation?
 }
@@ -188,23 +194,30 @@ enum TicketmasterMapper {
         guard let rawID = dto.id, let title = dto.name else { return nil }
 
         let venue = dto.embedded?.venues?.first
-        let lat = Double(venue?.location?.latitude ?? "") ?? 0
-        let lon = Double(venue?.location?.longitude ?? "") ?? 0
+        guard
+            let latStr = venue?.location?.latitude,
+            let lonStr = venue?.location?.longitude,
+            let lat = Double(latStr),
+            let lon = Double(lonStr),
+            !(lat == 0 && lon == 0)
+        else {
+            return nil
+        }
+
         let start = parseStartDate(dto.dates?.start) ?? .now
+        let endDate = parseStartDate(dto.dates?.end)
         let imageURL = bestImageURL(dto.images)
         let category = mapCategory(from: dto.classifications)
         let description = buildDescription(info: dto.info, pleaseNote: dto.pleaseNote, url: dto.url)
         let neighborhood = venue?.city?.name ?? ""
         let addressLine = venue?.address?.line1
-        let address: String = {
-            if let addressLine, !addressLine.isEmpty {
-                if let city = venue?.city?.name, !city.isEmpty {
-                    return "\(addressLine), \(city)"
-                }
-                return addressLine
-            }
-            return neighborhood.isEmpty ? "Address TBA" : neighborhood
-        }()
+        let address = buildAddress(
+            line1: addressLine,
+            city: venue?.city?.name,
+            stateCode: venue?.state?.stateCode,
+            stateName: venue?.state?.name,
+            neighborhood: neighborhood
+        )
         let venueName = venue?.name ?? "Venue TBA"
 
         return Event(
@@ -213,7 +226,7 @@ enum TicketmasterMapper {
             title: title,
             description: description,
             startDate: start,
-            endDate: nil,
+            endDate: endDate,
             venueName: venueName,
             neighborhood: neighborhood,
             address: address,
@@ -223,6 +236,27 @@ enum TicketmasterMapper {
             imageSystemName: category.systemImage,
             imageURL: imageURL
         )
+    }
+
+    private static func buildAddress(
+        line1: String?,
+        city: String?,
+        stateCode: String?,
+        stateName: String?,
+        neighborhood: String
+    ) -> String {
+        var parts: [String] = []
+        if let line1, !line1.isEmpty { parts.append(line1) }
+        if let city, !city.isEmpty { parts.append(city) }
+        if let stateCode, !stateCode.isEmpty {
+            parts.append(stateCode)
+        } else if let stateName, !stateName.isEmpty {
+            parts.append(stateName)
+        }
+        if parts.isEmpty {
+            return neighborhood.isEmpty ? "Address TBA" : neighborhood
+        }
+        return parts.joined(separator: ", ")
     }
 
     private static func bestImageURL(_ images: [TicketmasterImage]?) -> URL? {

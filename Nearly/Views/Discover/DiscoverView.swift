@@ -10,22 +10,34 @@ struct DiscoverView: View {
 
         NavigationStack {
             Group {
-                if viewModel.isLoading && viewModel.events.isEmpty {
+                switch viewModel.contentState {
+                case .loading:
                     ProgressView("Finding events…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let error = viewModel.errorMessage, viewModel.events.isEmpty {
+                case .error(let message):
+                    ContentUnavailableView {
+                        Label("Something went wrong", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(message)
+                    } actions: {
+                        Button("Try Again") {
+                            Task { await reloadEvents() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                case .emptyFeed:
                     ContentUnavailableView(
-                        "Something went wrong",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(error)
+                        "No events nearby",
+                        systemImage: "mappin.and.ellipse",
+                        description: Text("Nothing in this radius yet. Try a larger radius or another category.")
                     )
-                } else if viewModel.filteredEvents.isEmpty {
+                case .emptyFilter:
                     ContentUnavailableView(
                         "No events match",
                         systemImage: "magnifyingglass",
-                        description: Text("Try another category or clear your search.")
+                        description: Text(viewModel.emptyFilterMessage)
                     )
-                } else {
+                case .results:
                     List(viewModel.filteredEvents) { event in
                         NavigationLink(value: event) {
                             EventRowView(
@@ -65,17 +77,41 @@ struct DiscoverView: View {
                 }
             }
             .safeAreaInset(edge: .top) {
-                if viewModel.showingLocationDeniedBanner {
-                    locationBanner
+                VStack(spacing: 0) {
+                    if viewModel.showingLocationDeniedBanner {
+                        locationBanner
+                    }
+                    radiusPicker
                 }
             }
             .refreshable {
-                await viewModel.loadEvents(
-                    near: locationManager.coordinateForSearch,
-                    usingDefaultLocation: locationManager.usingDefaultLocation
-                )
+                await reloadEvents()
+            }
+            .onChange(of: viewModel.radiusMiles) { _, _ in
+                Task { await reloadEvents() }
+            }
+            .onChange(of: viewModel.selectedCategory) { _, _ in
+                Task { await reloadEvents() }
             }
         }
+    }
+
+    private var radiusPicker: some View {
+        @Bindable var viewModel = viewModel
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("Radius")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Picker("Radius", selection: $viewModel.radiusMiles) {
+                ForEach(DiscoverViewModel.radiusMilesOptions, id: \.self) { miles in
+                    Text("\(miles) mi").tag(miles)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 
     private var locationBanner: some View {
@@ -99,5 +135,12 @@ struct DiscoverView: View {
         }
         .padding(12)
         .background(.orange.opacity(0.12))
+    }
+
+    private func reloadEvents() async {
+        await viewModel.loadEvents(
+            near: locationManager.coordinateForSearch,
+            usingDefaultLocation: locationManager.usingDefaultLocation
+        )
     }
 }

@@ -2,9 +2,21 @@ import Foundation
 import CoreLocation
 import Observation
 
+/// Explicit Discover UI surface after a load attempt.
+enum DiscoverContentState: Equatable {
+    case loading
+    case error(String)
+    case emptyFeed
+    case emptyFilter
+    case results
+}
+
 @Observable
 @MainActor
 final class DiscoverViewModel {
+    private static let radiusMilesKey = "discoverRadiusMiles"
+    static let radiusMilesOptions = [5, 10, 25, 50]
+
     private let eventService: any EventService
 
     var events: [Event] = []
@@ -14,12 +26,57 @@ final class DiscoverViewModel {
     var selectedCategory: EventCategory?
     var showingLocationDeniedBanner = false
 
+    /// User-controlled search radius in miles (persisted).
+    var radiusMiles: Int {
+        didSet {
+            let clamped = Self.clampedRadiusMiles(radiusMiles)
+            if clamped != radiusMiles {
+                radiusMiles = clamped
+                return
+            }
+            UserDefaults.standard.set(radiusMiles, forKey: Self.radiusMilesKey)
+        }
+    }
+
+    var radiusMeters: CLLocationDistance {
+        CLLocationDistance(radiusMiles) * 1609.344
+    }
+
     /// Bumps on every `loadEvents` so stale responses are ignored.
     private var loadGeneration = 0
     private var loadTask: Task<Void, Never>?
 
     init(eventService: any EventService) {
         self.eventService = eventService
+        let stored = UserDefaults.standard.object(forKey: Self.radiusMilesKey) as? Int
+        self.radiusMiles = Self.clampedRadiusMiles(stored ?? 25)
+    }
+
+    var contentState: DiscoverContentState {
+        if isLoading && events.isEmpty {
+            return .loading
+        }
+        if let errorMessage, events.isEmpty {
+            return .error(errorMessage)
+        }
+        if events.isEmpty {
+            return .emptyFeed
+        }
+        if filteredEvents.isEmpty {
+            return .emptyFilter
+        }
+        return .results
+    }
+
+    var emptyFilterMessage: String {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            return "Try another search term or clear the search field."
+        }
+        if selectedCategory != nil {
+            return "Try another category or choose All categories."
+        }
+        return "Try another category or clear your search."
     }
 
     var filteredEvents: [Event] {
@@ -84,8 +141,8 @@ final class DiscoverViewModel {
 
         let query = EventQuery(
             coordinate: coordinate,
-            radiusMeters: 25_000,
-            category: nil,
+            radiusMeters: radiusMeters,
+            category: selectedCategory,
             dateInterval: nil
         )
 
@@ -97,10 +154,14 @@ final class DiscoverViewModel {
             return
         } catch {
             guard token == loadGeneration, !Task.isCancelled else { return }
-            errorMessage = "Couldn't load events. Pull to refresh."
+            errorMessage = "Couldn't load events. Pull to refresh or tap Try Again."
         }
 
         guard token == loadGeneration else { return }
         isLoading = false
+    }
+
+    private static func clampedRadiusMiles(_ value: Int) -> Int {
+        radiusMilesOptions.contains(value) ? value : 25
     }
 }

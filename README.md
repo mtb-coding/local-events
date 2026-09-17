@@ -21,6 +21,12 @@ On first launch you’ll see a short onboarding screen that explains location ac
 
 > **Signing:** The project uses Automatic signing with bundle id `com.mtbcoding.Nearly`. For a physical device, pick your Team in the Nearly target’s Signing & Capabilities tab. Simulator runs do not require a paid team.
 
+## What's new (v1.1)
+
+- **Discover states** — loading, empty feed, empty search/filter, and error with retry
+- **Radius control** — 5 / 10 / 25 / 50 mi picker (no hardcoded 25 km); category passed into `EventQuery`
+- **Mapper nits** — skip missing/0,0 coords; include `stateCode` in address; decode `dates.end` when present
+
 ## v1 features
 
 - **Onboarding** — location permission explanation + CoreLocation request
