@@ -10,17 +10,24 @@ struct MockEventService: EventService {
         self.events = Self.makeMockEvents(calendar: calendar, now: now)
     }
 
-    func fetchNearbyEvents(
-        near coordinate: CLLocationCoordinate2D,
-        radiusMeters: CLLocationDistance
-    ) async throws -> [Event] {
+    func fetchNearbyEvents(_ query: EventQuery) async throws -> [Event] {
         try await Task.sleep(nanoseconds: 250_000_000)
-        let center = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let center = CLLocation(latitude: query.coordinate.latitude, longitude: query.coordinate.longitude)
+
         return events
+            .filter { event in
+                if let category = query.category, event.category != category {
+                    return false
+                }
+                if let interval = query.dateInterval, !interval.contains(event.startDate) {
+                    return false
+                }
+                return true
+            }
             .map { event in
                 (event, event.location.distance(from: center))
             }
-            .filter { $0.1 <= radiusMeters }
+            .filter { $0.1 <= query.radiusMeters }
             .sorted { $0.1 < $1.1 }
             .map(\.0)
     }
@@ -28,8 +35,6 @@ struct MockEventService: EventService {
     func event(id: String) async throws -> Event? {
         events.first { $0.id == id }
     }
-
-    // MARK: - Seed data (~18 events around NYC)
 
     private static func makeMockEvents(calendar: Calendar, now: Date) -> [Event] {
         func date(days: Int, hour: Int, minute: Int = 0) -> Date {
@@ -42,9 +47,10 @@ struct MockEventService: EventService {
 
         return [
             Event(
-                id: "evt-01",
+                rawID: "evt-01",
+                source: .mock,
                 title: "Jazz Under the Arch",
-                description: "An intimate evening of live jazz with local ensembles beneath Washington Square Arch. Bring a blanket and settle in for standards and originals.",
+                description: "Live jazz under Washington Square Arch.",
                 startDate: date(days: 0, hour: 19, minute: 30),
                 endDate: date(days: 0, hour: 22),
                 venueName: "Washington Square Park",
@@ -55,9 +61,10 @@ struct MockEventService: EventService {
                 imageSystemName: "music.note.list"
             ),
             Event(
-                id: "evt-02",
+                rawID: "evt-02",
+                source: .mock,
                 title: "Chelsea Market Food Crawl",
-                description: "Sample bites from ten favorite vendors with a local guide. Vegetarian options available; tickets include tastings and a souvenir tote.",
+                description: "Guided tasting of Chelsea Market favorites.",
                 startDate: date(days: 1, hour: 12),
                 endDate: date(days: 1, hour: 14, minute: 30),
                 venueName: "Chelsea Market",
@@ -68,9 +75,10 @@ struct MockEventService: EventService {
                 imageSystemName: "fork.knife.circle"
             ),
             Event(
-                id: "evt-03",
+                rawID: "evt-03",
+                source: .mock,
                 title: "MoMA Late Night Sketch",
-                description: "After-hours drawing session inspired by current exhibitions. Materials provided; all skill levels welcome.",
+                description: "After-hours drawing at MoMA.",
                 startDate: date(days: 2, hour: 18, minute: 30),
                 endDate: date(days: 2, hour: 21),
                 venueName: "Museum of Modern Art",
@@ -81,9 +89,10 @@ struct MockEventService: EventService {
                 imageSystemName: "paintbrush.pointed"
             ),
             Event(
-                id: "evt-04",
+                rawID: "evt-04",
+                source: .mock,
                 title: "Brooklyn Bridge Sunrise Run",
-                description: "5K group jog from Brooklyn Bridge Park over the bridge and back. Pace groups for beginners through intermediate runners.",
+                description: "5K group jog over the Brooklyn Bridge.",
                 startDate: date(days: 3, hour: 6, minute: 30),
                 endDate: date(days: 3, hour: 8),
                 venueName: "Brooklyn Bridge Park",
@@ -94,9 +103,10 @@ struct MockEventService: EventService {
                 imageSystemName: "figure.run"
             ),
             Event(
-                id: "evt-05",
+                rawID: "evt-05",
+                source: .mock,
                 title: "Rooftop Indie Night",
-                description: "Three rising NYC indie bands on a Lower East Side rooftop. Doors at 8; skyline views included.",
+                description: "Indie bands on a Lower East Side rooftop.",
                 startDate: date(days: 1, hour: 20),
                 endDate: date(days: 2, hour: 0),
                 venueName: "The Roof at PhD",
@@ -107,9 +117,10 @@ struct MockEventService: EventService {
                 imageSystemName: "moon.stars.fill"
             ),
             Event(
-                id: "evt-06",
+                rawID: "evt-06",
+                source: .mock,
                 title: "Central Park Bird Walk",
-                description: "Morning guided walk focused on migratory songbirds. Binoculars available to borrow; limited to 20 guests.",
+                description: "Guided migratory songbird walk.",
                 startDate: date(days: 4, hour: 7, minute: 30),
                 endDate: date(days: 4, hour: 9, minute: 30),
                 venueName: "Central Park Conservancy",
@@ -120,9 +131,10 @@ struct MockEventService: EventService {
                 imageSystemName: "bird"
             ),
             Event(
-                id: "evt-07",
+                rawID: "evt-07",
+                source: .mock,
                 title: "Harlem Community Potluck",
-                description: "Neighborhood potluck celebrating local makers and musicians. Bring a dish to share or donate to the food bank drive.",
+                description: "Neighborhood potluck and food bank drive.",
                 startDate: date(days: 5, hour: 17),
                 endDate: date(days: 5, hour: 20),
                 venueName: "Marcus Garvey Park",
@@ -133,9 +145,10 @@ struct MockEventService: EventService {
                 imageSystemName: "person.3.fill"
             ),
             Event(
-                id: "evt-08",
+                rawID: "evt-08",
+                source: .mock,
                 title: "Stand-Up at The Stand",
-                description: "Showcase night featuring comics from NYC club circuit. Two-drink minimum; 21+.",
+                description: "NYC comics showcase night.",
                 startDate: date(days: 0, hour: 21),
                 endDate: date(days: 0, hour: 23),
                 venueName: "The Stand",
@@ -146,9 +159,10 @@ struct MockEventService: EventService {
                 imageSystemName: "mic"
             ),
             Event(
-                id: "evt-09",
+                rawID: "evt-09",
+                source: .mock,
                 title: "Williamsburg Vinyl Fair",
-                description: "Dozens of sellers with rare pressings, new releases, and listening stations. Live DJ sets all afternoon.",
+                description: "Rare pressings and DJ sets.",
                 startDate: date(days: 6, hour: 11),
                 endDate: date(days: 6, hour: 18),
                 venueName: "Brooklyn Steel Lobby",
@@ -159,9 +173,10 @@ struct MockEventService: EventService {
                 imageSystemName: "opticaldisc"
             ),
             Event(
-                id: "evt-10",
+                rawID: "evt-10",
+                source: .mock,
                 title: "Smorgasburg Picnic",
-                description: "Open-air market with dozens of food vendors along the East River. Grab a plate and watch the ferries roll by.",
+                description: "Open-air food market by the East River.",
                 startDate: date(days: 6, hour: 11),
                 endDate: date(days: 6, hour: 18),
                 venueName: "Smorgasburg",
@@ -172,9 +187,10 @@ struct MockEventService: EventService {
                 imageSystemName: "takeoutbag.and.cup.and.straw"
             ),
             Event(
-                id: "evt-11",
+                rawID: "evt-11",
+                source: .mock,
                 title: "Gallery Hop: Chelsea",
-                description: "Self-guided afternoon visiting five contemporary galleries with a shared checklist and closing wine reception.",
+                description: "Self-guided Chelsea gallery afternoon.",
                 startDate: date(days: 2, hour: 14),
                 endDate: date(days: 2, hour: 18),
                 venueName: "Chelsea Art District",
@@ -185,9 +201,10 @@ struct MockEventService: EventService {
                 imageSystemName: "building.columns"
             ),
             Event(
-                id: "evt-12",
+                rawID: "evt-12",
+                source: .mock,
                 title: "Pickup Soccer at Pier 40",
-                description: "Casual 7v7 games on the Hudson. Cleats recommended; teams reshuffled every two matches.",
+                description: "Casual 7v7 on the Hudson.",
                 startDate: date(days: 3, hour: 18),
                 endDate: date(days: 3, hour: 20),
                 venueName: "Pier 40",
@@ -198,9 +215,10 @@ struct MockEventService: EventService {
                 imageSystemName: "soccerball"
             ),
             Event(
-                id: "evt-13",
+                rawID: "evt-13",
+                source: .mock,
                 title: "Speakeasy Cocktail Class",
-                description: "Learn three classic cocktails behind a hidden West Village bar. Includes tasting flight and recipe cards.",
+                description: "Learn three classics behind a hidden bar.",
                 startDate: date(days: 4, hour: 19),
                 endDate: date(days: 4, hour: 21),
                 venueName: "Employees Only",
@@ -211,9 +229,10 @@ struct MockEventService: EventService {
                 imageSystemName: "wineglass"
             ),
             Event(
-                id: "evt-14",
+                rawID: "evt-14",
+                source: .mock,
                 title: "Prospect Park Picnic Concert",
-                description: "Free outdoor concert by the Brooklyn Philharmonic brass ensemble. Picnic blankets encouraged.",
+                description: "Free outdoor brass concert.",
                 startDate: date(days: 7, hour: 16),
                 endDate: date(days: 7, hour: 18),
                 venueName: "Prospect Park Bandshell",
@@ -224,9 +243,10 @@ struct MockEventService: EventService {
                 imageSystemName: "tree"
             ),
             Event(
-                id: "evt-15",
+                rawID: "evt-15",
+                source: .mock,
                 title: "Astoria Book Swap",
-                description: "Bring up to five books to trade. Local authors read short excerpts at 5 PM.",
+                description: "Bring books to trade; author readings.",
                 startDate: date(days: 5, hour: 15),
                 endDate: date(days: 5, hour: 18),
                 venueName: "Astoria Library",
@@ -237,9 +257,10 @@ struct MockEventService: EventService {
                 imageSystemName: "books.vertical"
             ),
             Event(
-                id: "evt-16",
+                rawID: "evt-16",
+                source: .mock,
                 title: "Improv Jam: UCB East",
-                description: "Open jam for improvisers of all levels. Warm-ups at 7:30; scenes start at 8.",
+                description: "Open improv jam for all levels.",
                 startDate: date(days: 1, hour: 19, minute: 30),
                 endDate: date(days: 1, hour: 22),
                 venueName: "UCB Theatre East",
@@ -250,9 +271,10 @@ struct MockEventService: EventService {
                 imageSystemName: "theatermasks"
             ),
             Event(
-                id: "evt-17",
+                rawID: "evt-17",
+                source: .mock,
                 title: "Times Square Silent Disco",
-                description: "Wireless headphones, three DJ channels, and neon lights. Dance under the billboards without the noise complaints.",
+                description: "Wireless headphone dance under the lights.",
                 startDate: date(days: 8, hour: 21),
                 endDate: date(days: 8, hour: 23, minute: 30),
                 venueName: "Duffy Square",
@@ -263,9 +285,10 @@ struct MockEventService: EventService {
                 imageSystemName: "headphones"
             ),
             Event(
-                id: "evt-18",
+                rawID: "evt-18",
+                source: .mock,
                 title: "Queens Night Market Preview",
-                description: "Early-season tasting night with 20 vendors from Flushing to Jackson Heights. Live folk sets on the main stage.",
+                description: "Early-season vendor tasting night.",
                 startDate: date(days: 9, hour: 17),
                 endDate: date(days: 9, hour: 22),
                 venueName: "New York Hall of Science Lot",
