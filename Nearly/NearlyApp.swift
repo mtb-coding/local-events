@@ -4,7 +4,14 @@ import SwiftData
 @main
 struct NearlyApp: App {
     @State private var locationManager = LocationManager()
-    @State private var discoverViewModel = DiscoverViewModel()
+    @State private var eventService: any EventService
+    @State private var discoverViewModel: DiscoverViewModel
+
+    init() {
+        let service = EventServiceFactory.makeDefault()
+        _eventService = State(initialValue: service)
+        _discoverViewModel = State(initialValue: DiscoverViewModel(eventService: service))
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -12,6 +19,7 @@ struct NearlyApp: App {
                 ContentView()
                     .environment(locationManager)
                     .environment(discoverViewModel)
+                    .environment(\.eventService, eventService)
             }
         }
         .modelContainer(for: SavedEvent.self)
