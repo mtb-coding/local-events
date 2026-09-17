@@ -21,5 +21,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(LocationManager())
-        .environment(DiscoverViewModel())
+        .environment(DiscoverViewModel(eventService: MockEventService()))
 }
