@@ -19,6 +19,8 @@ struct DiscoverView: View {
                     emptyView(radiusMiles: radiusMiles)
                 case .locationDenied:
                     locationDeniedView
+                case .locationNotDetermined:
+                    locationNotDeterminedView
                 case .failed(let retryable):
                     failedView(retryable: retryable)
                 }
@@ -55,7 +57,10 @@ struct DiscoverView: View {
                        viewModel.phase == .populated || viewModel.phase == .loading {
                         sampleEventsChip
                     }
-                    if viewModel.phase != .locationDenied {
+                    if viewModel.phase == .populated, viewModel.softLoadFailed {
+                        quietRetryBanner
+                    }
+                    if !isLocationPhase {
                         radiusPicker(selection: $viewModel.radiusMiles)
                     }
                 }
@@ -69,6 +74,15 @@ struct DiscoverView: View {
             .onChange(of: viewModel.selectedCategory) { _, _ in
                 Task { await reloadEvents() }
             }
+        }
+    }
+
+    private var isLocationPhase: Bool {
+        switch viewModel.phase {
+        case .locationDenied, .locationNotDetermined:
+            return true
+        default:
+            return false
         }
     }
 
@@ -165,7 +179,7 @@ struct DiscoverView: View {
         }
     }
 
-    /// Full-screen; primary action is Open Settings. only.
+    /// Denied / restricted — full-screen; primary action is Open Settings. only.
     private var locationDeniedView: some View {
         ContentUnavailableView {
             Label("Location needed.", systemImage: "location.slash")
@@ -174,6 +188,20 @@ struct DiscoverView: View {
         } actions: {
             Button("Open Settings.") {
                 openSystemSettings()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    /// Not determined — same panel family; Enable Location → in-app permission request.
+    private var locationNotDeterminedView: some View {
+        ContentUnavailableView {
+            Label("Location needed.", systemImage: "location")
+        } description: {
+            Text("Allow location so we can show what's near you.")
+        } actions: {
+            Button("Enable Location") {
+                locationManager.requestPermission()
             }
             .buttonStyle(.borderedProminent)
         }
@@ -208,6 +236,29 @@ struct DiscoverView: View {
         .accessibilityLabel("Sample events")
     }
 
+    /// Quiet soft-fail banner over prior list (not full-screen failed).
+    private var quietRetryBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle")
+                .foregroundStyle(.secondary)
+            Text("Couldn't refresh.")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Button("Retry") {
+                Task { await reloadEvents() }
+            }
+            .font(.caption.weight(.semibold))
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(.secondarySystemBackground))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Couldn't refresh. Retry")
+    }
+
     private func radiusPicker(selection: Binding<Int>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Radius")
@@ -234,7 +285,7 @@ struct DiscoverView: View {
         await viewModel.loadEvents(
             near: locationManager.coordinateForSearch,
             usingDefaultLocation: locationManager.usingDefaultLocation,
-            isAuthorized: locationManager.isAuthorized
+            authorizationStatus: locationManager.authorizationStatus
         )
     }
 }

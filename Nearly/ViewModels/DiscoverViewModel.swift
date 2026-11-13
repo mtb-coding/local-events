@@ -7,7 +7,10 @@ enum DiscoverPhase: Equatable {
     case loading
     case populated
     case empty(radiusMiles: Int)
+    /// Denied or restricted — Open Settings.
     case locationDenied
+    /// Not yet prompted — Enable Location → `requestPermission()`.
+    case locationNotDetermined
     case failed(retryable: Bool)
 }
 
@@ -26,6 +29,8 @@ final class DiscoverViewModel {
     var phase: DiscoverPhase = .loading
     /// True while a fetch is in flight (may keep showing prior `.populated` list).
     var isRefreshing = false
+    /// Soft API fail while keeping a prior `.populated` list — quiet retry chip (not full-screen failed).
+    var softLoadFailed = false
     var searchText = ""
     var selectedCategory: EventCategory?
 
@@ -114,12 +119,13 @@ final class DiscoverViewModel {
     }
 
     /// - Parameters:
-    ///   - isAuthorized: Core Location authorized; when false → `.locationDenied` (never empty).
+    ///   - authorizationStatus: Core Location status — notDetermined → `.locationNotDetermined`;
+    ///     denied/restricted → `.locationDenied`; authorized proceeds to fetch.
     ///   - usingDefaultLocation: authorized but no fix yet → wait in `.loading` (don’t fetch NYC).
     func loadEvents(
         near coordinate: CLLocationCoordinate2D,
         usingDefaultLocation: Bool,
-        isAuthorized: Bool
+        authorizationStatus: CLAuthorizationStatus
     ) async {
         loadTask?.cancel()
         loadGeneration += 1
@@ -130,7 +136,7 @@ final class DiscoverViewModel {
                 token: token,
                 coordinate: coordinate,
                 usingDefaultLocation: usingDefaultLocation,
-                isAuthorized: isAuthorized,
+                authorizationStatus: authorizationStatus,
                 eventService: eventService
             )
         }
@@ -142,13 +148,28 @@ final class DiscoverViewModel {
         token: Int,
         coordinate: CLLocationCoordinate2D,
         usingDefaultLocation: Bool,
-        isAuthorized: Bool,
+        authorizationStatus: CLAuthorizationStatus,
         eventService: any EventService
     ) async {
-        // Denied / off → full-screen locationDenied (never empty).
-        if !isAuthorized {
+        switch authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            break
+        case .notDetermined:
             guard token == loadGeneration else { return }
             isRefreshing = false
+            softLoadFailed = false
+            phase = .locationNotDetermined
+            return
+        case .denied, .restricted:
+            guard token == loadGeneration else { return }
+            isRefreshing = false
+            softLoadFailed = false
+            phase = .locationDenied
+            return
+        @unknown default:
+            guard token == loadGeneration else { return }
+            isRefreshing = false
+            softLoadFailed = false
             phase = .locationDenied
             return
         }
@@ -181,6 +202,7 @@ final class DiscoverViewModel {
             guard token == loadGeneration, !Task.isCancelled else { return }
             // Success replace only.
             events = result
+            softLoadFailed = false
             if result.isEmpty {
                 phase = .empty(radiusMiles: radiusMiles)
             } else {
@@ -191,9 +213,13 @@ final class DiscoverViewModel {
         } catch {
             guard token == loadGeneration, !Task.isCancelled else { return }
             // Hard failure with nothing to show → failed (not empty).
-            // Soft failure with prior list → keep events + populated.
+            // Soft failure with prior list → keep events + populated + quiet retry.
             if events.isEmpty {
+                softLoadFailed = false
                 phase = .failed(retryable: true)
+            } else {
+                softLoadFailed = true
+                phase = .populated
             }
         }
 
