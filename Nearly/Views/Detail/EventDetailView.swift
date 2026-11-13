@@ -110,7 +110,7 @@ struct EventDetailView: View {
     private var mapSection: some View {
         Map(position: $cameraPosition) {
             Marker(event.venueName, coordinate: event.coordinate)
-                .tint(.accentColor)
+                .tint(Color.accentColor)
         }
         .frame(height: 220)
         .clipShape(RoundedRectangle(cornerRadius: 16))
