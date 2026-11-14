@@ -59,7 +59,7 @@ jobs:
           set +e
           UDID="${SIM_UDID:-}"
           APP="$PWD/DerivedData/Build/Products/Debug-iphonesimulator/Nearly.app"
-          BUNDLE_ID="com.mtbcoding.Nearly"
+          BUNDLE_ID="com.mtbcoding.nearly"
           # Midtown Manhattan, same as MockEventService.nycCenter
           LAT="40.7580"
           LON="-73.9855"
@@ -97,4 +97,42 @@ jobs:
           name: nearly-simulator-screenshots
           path: screenshots/
           if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build unsigned device IPA for Sideloadly
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project Nearly.xcodeproj \
+            -scheme Nearly \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$PWD/DerivedData-iphoneos" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PRODUCT_BUNDLE_IDENTIFIER=com.mtbcoding.nearly \
+            build
+          APP="$PWD/DerivedData-iphoneos/Build/Products/Release-iphoneos/Nearly.app"
+          if [ ! -d "$APP" ]; then
+            echo "Release device app not found at $APP"
+            find DerivedData-iphoneos -name "Nearly.app" -print || true
+            exit 1
+          fi
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP" Payload/Nearly.app
+          zip -r Nearly.ipa Payload
+          ls -lh Nearly.ipa
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' Payload/Nearly.app/Info.plist
+
+      - name: Upload unsigned IPA
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nearly-ipa
+          path: Nearly.ipa
+          if-no-files-found: error
           retention-days: 14
