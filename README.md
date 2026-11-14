@@ -17,17 +17,35 @@ Repository: [github.com/mtb-coding/local-events](https://github.com/mtb-coding/l
 3. Select an iOS 17+ Simulator (e.g. iPhone 16).
 4. Press **Run** (⌘R).
 
-On first launch you’ll see a short onboarding screen that explains location access. Allow Location to load nearby events; if Location is off/denied, Discover shows a full-screen **Location needed** state with **Open Settings.**
+On first launch you’ll see a short onboarding screen that explains location access. Allow Location to load nearby events. If permission has not been decided yet, Discover shows **Location needed** with **Enable Location**. If Location is off or denied, the same panel offers **Open Settings.**
 
 > **Signing:** The project uses Automatic signing with bundle id `com.mtbcoding.Nearly`. For a physical device, pick your Team in the Nearly target’s Signing & Capabilities tab. Simulator runs do not require a paid team.
 
+## Discover phases
+
+| Phase | When | UI |
+| --- | --- | --- |
+| `loading` | First fetch / waiting for GPS | Card-geometry skeletons |
+| `populated` | Events on screen | List (+ thin top progress on reload) |
+| `empty(radiusMiles)` | Authorized fetch returned none | “Nothing within X mi.” + **Widen radius** |
+| `locationNotDetermined` | Auth not prompted yet | “Location needed.” + **Enable Location** → `requestPermission()` |
+| `locationDenied` | Denied / restricted | “Location needed.” + **Open Settings.** |
+| `failed(retryable)` | Hard API fail with empty list | “Couldn't load events.” + **Retry** |
+
+## Polish notes
+
+- **Quiet retry** — Soft API fail with a prior list keeps `.populated` and shows a quiet “Couldn't refresh.” + **Retry** chip (not full-screen failed).
+- **Location auth split** — `notDetermined` never routes to Settings; denied/restricted still does.
+- **Coordinate reload** — Discover reloads when latitude **or** longitude changes (combined coordinate identity).
+- **App icon** — RIPPLE (concentric arcs + center spark; flat coral on calm dark). Single 1024 universal slot in `AppIcon.appiconset`.
+
 ## What's new (v1.1)
 
-- **Discover phases** — `loading` (card skeletons) | `populated` | `empty(radiusMiles)` | `locationDenied` | `failed(retryable)`
-- **Designer CTAs** — Location needed → Open Settings. only; empty → Widen radius; failed → Retry; Sample events chip when Mock
-- **Reload** — keeps prior list + thin top progress (never flashes empty)
-- **Radius** — 5 / 10 / 25 / 50 mi into `EventQuery` (no hardcoded 25 km)
-- **Mapper nits** — skip missing/0,0 coords; `stateCode` in address; decode `dates.end`
+- Discover phase model (table above) with Designer CTAs
+- Reload keeps prior list + thin top progress
+- Radius 5 / 10 / 25 / 50 mi into `EventQuery`
+- Mapper nits — skip missing/0,0 coords; `stateCode` in address; decode `dates.end`
+- Quiet soft-fail retry; locationNotDetermined CTA; lon+lat reload; AppIcon RIPPLE
 
 ## v1 features
 
@@ -49,7 +67,7 @@ Nearly/
   Info.plist
   Assets.xcassets/
   Models/          Event, EventCategory, EventQuery, SavedEvent (SwiftData)
-  Services/        EventService, MockEventService, LocationManager
+  Services/        EventService, MockEventService, LocationManager, Ticketmaster…
   ViewModels/      DiscoverViewModel, SavedStore
   Views/           Onboarding, MainTab, Discover/, Detail/, Saved/
 ```
@@ -63,11 +81,10 @@ Nearly/
 
 ## Next steps
 
-- Wire a real events API behind `EventService`
+- Wire a real events API behind `EventService` (Ticketmaster path exists when key is set)
 - Add push / calendar reminders for saved events
 - Improve map clustering and “open in Maps”
 - Add unit tests for distance formatting and filtering
-- Design a custom app icon in `Assets.xcassets/AppIcon.appiconset`
 
 ## Requirements
 

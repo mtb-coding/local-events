@@ -1,0 +1,45 @@
+name: iOS build
+
+on:
+  pull_request:
+    paths:
+      - "Nearly/**"
+      - "Nearly.xcodeproj/**"
+      - ".github/workflows/ios-build.yml"
+
+concurrency:
+  group: ios-build-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          set -euo pipefail
+          latest=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
+          sudo xcode-select -s "$latest"
+          echo "Using $latest"
+          xcodebuild -version
+          xcodebuild -project Nearly.xcodeproj -list
+
+      - name: Build Nearly for iOS Simulator
+        run: |
+          set -euo pipefail
+          # No test target exists in this project, so this is a simulator build only.
+          xcodebuild \
+            -project Nearly.xcodeproj \
+            -scheme Nearly \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
