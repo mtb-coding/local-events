@@ -21,8 +21,8 @@ struct DiscoverView: View {
                     locationDeniedView
                 case .locationNotDetermined:
                     locationNotDeterminedView
-                case .failed(let retryable):
-                    failedView(retryable: retryable)
+                case .failed:
+                    failedView
                 }
             }
             .navigationTitle("Discover")
@@ -207,18 +207,16 @@ struct DiscoverView: View {
         }
     }
 
-    private func failedView(retryable: Bool) -> some View {
+    private var failedView: some View {
         ContentUnavailableView {
             Label("Couldn't load events.", systemImage: "exclamationmark.triangle")
         } description: {
             Text("Something went wrong. Try again.")
         } actions: {
-            if retryable {
-                Button("Retry") {
-                    Task { await reloadEvents() }
-                }
-                .buttonStyle(.borderedProminent)
+            Button("Retry") {
+                Task { await reloadEvents() }
             }
+            .buttonStyle(.borderedProminent)
         }
     }
 
@@ -245,18 +243,24 @@ struct DiscoverView: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
-            Button("Retry") {
-                Task { await reloadEvents() }
+            if viewModel.isRefreshing {
+                ProgressView()
+                    .controlSize(.mini)
+                    .accessibilityLabel("Retrying")
+            } else {
+                Button("Retry") {
+                    Task { await reloadEvents() }
+                }
+                .font(.caption.weight(.semibold))
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
             }
-            .font(.caption.weight(.semibold))
-            .buttonStyle(.bordered)
-            .controlSize(.mini)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color(.secondarySystemBackground))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Couldn't refresh. Retry")
+        .accessibilityLabel(viewModel.isRefreshing ? "Couldn't refresh. Retrying" : "Couldn't refresh. Retry")
     }
 
     private func radiusPicker(selection: Binding<Int>) -> some View {

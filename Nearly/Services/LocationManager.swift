@@ -13,15 +13,6 @@ final class LocationManager: NSObject {
     var currentLocation: CLLocation?
     var lastError: Error?
 
-    var hasDeterminedAuthorization: Bool {
-        switch authorizationStatus {
-        case .notDetermined:
-            return false
-        default:
-            return true
-        }
-    }
-
     var isAuthorized: Bool {
         switch authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:

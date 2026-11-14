@@ -11,7 +11,7 @@ enum DiscoverPhase: Equatable {
     case locationDenied
     /// Not yet prompted — Enable Location → `requestPermission()`.
     case locationNotDetermined
-    case failed(retryable: Bool)
+    case failed
 }
 
 @Observable
@@ -216,7 +216,7 @@ final class DiscoverViewModel {
             // Soft failure with prior list → keep events + populated + quiet retry.
             if events.isEmpty {
                 softLoadFailed = false
-                phase = .failed(retryable: true)
+                phase = .failed
             } else {
                 softLoadFailed = true
                 phase = .populated
