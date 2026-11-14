@@ -57,17 +57,26 @@ struct EventDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            Button {
-                savedStore.toggle(event)
-            } label: {
-                Label(
-                    isSaved ? "Remove from Saved" : "Save Event",
-                    systemImage: isSaved ? "bookmark.slash" : "bookmark.fill"
-                )
-                .font(.headline)
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 8) {
+                if let message = savedStore.lastErrorMessage {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .accessibilityLabel(message)
+                }
+                Button {
+                    savedStore.toggle(event)
+                } label: {
+                    Label(
+                        isSaved ? "Remove from Saved" : "Save Event",
+                        systemImage: isSaved ? "bookmark.slash" : "bookmark.fill"
+                    )
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
             .padding()
             .background(.bar)
         }
@@ -115,6 +124,7 @@ struct EventDetailView: View {
         .frame(height: 220)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .mapStyle(.standard(elevation: .realistic))
+        .accessibilityLabel("Map of \(event.venueName)")
     }
 
     private var descriptionSection: some View {

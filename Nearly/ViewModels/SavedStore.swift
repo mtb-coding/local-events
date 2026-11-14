@@ -7,19 +7,24 @@ import Observation
 final class SavedStore {
     private var modelContext: ModelContext
 
+    /// Observable set so Save buttons and row bookmarks flip immediately.
+    private(set) var savedIDs: Set<String> = []
+
     /// Surfaced to UI when a SwiftData save fails.
     var lastErrorMessage: String?
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+        refreshSavedIDs()
     }
 
     func updateContext(_ context: ModelContext) {
         modelContext = context
+        refreshSavedIDs()
     }
 
     func isSaved(_ eventID: String) -> Bool {
-        savedRecord(for: eventID) != nil
+        savedIDs.contains(eventID)
     }
 
     /// Hydrate a domain `Event` from a saved snapshot (offline detail fallback).
@@ -30,21 +35,25 @@ final class SavedStore {
     func toggle(_ event: Event) {
         if let existing = savedRecord(for: event.id) {
             modelContext.delete(existing)
+            savedIDs.remove(event.id)
         } else {
             modelContext.insert(SavedEvent(from: event))
+            savedIDs.insert(event.id)
         }
         persist()
     }
 
     func save(_ event: Event) {
-        guard savedRecord(for: event.id) == nil else { return }
+        guard !savedIDs.contains(event.id) else { return }
         modelContext.insert(SavedEvent(from: event))
+        savedIDs.insert(event.id)
         persist()
     }
 
     func unsave(eventID: String) {
         if let existing = savedRecord(for: eventID) {
             modelContext.delete(existing)
+            savedIDs.remove(eventID)
             persist()
         }
     }
@@ -63,7 +72,15 @@ final class SavedStore {
             lastErrorMessage = nil
         } catch {
             lastErrorMessage = "Couldn't update saved events. Please try again."
+            // Revert the in-memory set to whatever SwiftData still holds.
+            refreshSavedIDs()
         }
+    }
+
+    private func refreshSavedIDs() {
+        let descriptor = FetchDescriptor<SavedEvent>()
+        let records = (try? modelContext.fetch(descriptor)) ?? []
+        savedIDs = Set(records.map(\.eventId))
     }
 
     private func savedRecord(for eventID: String) -> SavedEvent? {

@@ -55,5 +55,14 @@ struct EventRowView: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(rowAccessibilityLabel)
+    }
+
+    private var rowAccessibilityLabel: String {
+        let date = Self.dateFormatter.string(from: event.startDate)
+        let distance = event.formattedDistance(from: userLocation)
+        let savedState = isSaved ? "Saved" : "Not saved"
+        return "\(event.title), \(date), \(event.venueName), \(distance), \(savedState)"
     }
 }
