@@ -80,13 +80,16 @@ jobs:
           xcrun simctl install "$UDID" "$APP"
           xcrun simctl privacy "$UDID" grant location "$BUNDLE_ID"
           xcrun simctl privacy "$UDID" grant location-always "$BUNDLE_ID" 2>/dev/null || true
-          # Xcode 15+: simctl location <device> set <lat>,<lon>
-          xcrun simctl location "$UDID" set "${LAT},${LON}"
           # Skip onboarding when possible so Discover can appear in the shot.
           xcrun simctl spawn "$UDID" defaults write "$BUNDLE_ID" hasCompletedOnboarding -bool true || true
+          # Set a fixed location before launch, then again after launch (prior run got no GPS fix in 10s).
+          xcrun simctl location "$UDID" set "${LAT},${LON}"
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
-          sleep 15
+          xcrun simctl location "$UDID" set "${LAT},${LON}"
+          sleep 25
           xcrun simctl io "$UDID" screenshot screenshots/01-launch-discover.png
+          sleep 15
+          xcrun simctl io "$UDID" screenshot screenshots/02-launch-discover.png
           ls -la screenshots || true
 
       - name: Upload simulator screenshots

@@ -40,6 +40,18 @@ struct SavedView: View {
             .navigationDestination(for: Event.self) { event in
                 EventDetailView(event: event)
             }
+            .safeAreaInset(edge: .bottom) {
+                if let message = savedStore.lastErrorMessage {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(.bar)
+                        .accessibilityLabel(message)
+                }
+            }
         }
     }
 }
