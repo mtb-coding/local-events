@@ -30,13 +30,14 @@ On first launch you’ll see a short onboarding screen that explains location ac
 | `empty(radiusMiles)` | Authorized fetch returned none | “Nothing within X mi.” + **Widen radius** |
 | `locationNotDetermined` | Auth not prompted yet | “Location needed.” + **Enable Location** → `requestPermission()` |
 | `locationDenied` | Denied / restricted | “Location needed.” + **Open Settings.** |
+| `locationUnavailable` | Authorized, but no fix after ~10s or a location error | “Couldn't find your location.” + **Retry** |
 | `failed` | Hard API fail with empty list | “Couldn't load events.” + **Retry** |
 
 ## Polish notes
 
 - **Quiet retry** — Soft API fail with a prior list keeps `.populated` and shows a quiet “Couldn't refresh.” + **Retry** chip (not full-screen failed).
 - **Location auth split** — `notDetermined` never routes to Settings; denied/restricted still does.
-- **Coordinate reload** — Discover reloads when latitude **or** longitude changes (combined coordinate identity).
+- **Coordinate reload** — Discover reloads on the first GPS fix, or after a move of about 300 m. Updates stop after a good fix. A locate timeout or error shows **Couldn't find your location.**
 - **App icon** — RIPPLE (concentric arcs + center spark; flat coral on calm dark). Single 1024 universal slot in `AppIcon.appiconset`.
 
 ## What's new (v1.1)

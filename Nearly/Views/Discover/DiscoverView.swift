@@ -21,6 +21,8 @@ struct DiscoverView: View {
                     locationDeniedView
                 case .locationNotDetermined:
                     locationNotDeterminedView
+                case .locationUnavailable:
+                    locationUnavailableView
                 case .failed:
                     failedView
                 }
@@ -79,7 +81,7 @@ struct DiscoverView: View {
 
     private var isLocationPhase: Bool {
         switch viewModel.phase {
-        case .locationDenied, .locationNotDetermined:
+        case .locationDenied, .locationNotDetermined, .locationUnavailable:
             return true
         default:
             return false
@@ -207,6 +209,21 @@ struct DiscoverView: View {
         }
     }
 
+    /// Authorized but no fix — Retry asks Core Location for a fresh fix.
+    private var locationUnavailableView: some View {
+        ContentUnavailableView {
+            Label("Couldn't find your location.", systemImage: "location.slash")
+        } description: {
+            Text("Try again to load events near you.")
+        } actions: {
+            Button("Retry") {
+                locationManager.requestFreshFix()
+                Task { await reloadEvents() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
     private var failedView: some View {
         ContentUnavailableView {
             Label("Couldn't load events.", systemImage: "exclamationmark.triangle")
@@ -289,7 +306,8 @@ struct DiscoverView: View {
         await viewModel.loadEvents(
             near: locationManager.coordinateForSearch,
             usingDefaultLocation: locationManager.usingDefaultLocation,
-            authorizationStatus: locationManager.authorizationStatus
+            authorizationStatus: locationManager.authorizationStatus,
+            locationFixFailed: locationManager.locationFixFailed
         )
     }
 }

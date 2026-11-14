@@ -11,8 +11,11 @@ concurrency:
   group: ios-build-${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# contents:read for checkout; actions:write so screenshot artifacts can upload
+# after `permissions:` would otherwise drop the default token scopes.
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build:
@@ -34,12 +37,64 @@ jobs:
       - name: Build Nearly for iOS Simulator
         run: |
           set -euo pipefail
-          # No test target exists in this project, so this is a simulator build only.
+          # One line so YAML indentation cannot break the Python script.
+          UDID=$(python3 -c 'import json,subprocess,sys; data=json.loads(subprocess.check_output(["xcrun","simctl","list","devices","available","-j"])); c=sorted(((r,d["name"],d["udid"]) for r,ds in data.get("devices",{}).items() for d in ds if d.get("isAvailable") and "iPhone" in d.get("name","")), reverse=True); sys.exit("No available iPhone simulator was found.") if not c else None; sys.stderr.write("Picked %s (%s) %s\n"%(c[0][1],c[0][0],c[0][2])); print(c[0][2])')
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "Building for simulator $UDID"
           xcodebuild \
             -project Nearly.xcodeproj \
             -scheme Nearly \
-            -destination "generic/platform=iOS Simulator" \
+            -destination "platform=iOS Simulator,id=$UDID" \
             -configuration Debug \
+            -derivedDataPath "$PWD/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             build
+
+      # Screenshots are best-effort and must not fail the compile job.
+      # MTB has no Mac, so these images are the only first-run look we can get.
+      - name: Screenshot launch on Simulator
+        continue-on-error: true
+        run: |
+          set +e
+          UDID="${SIM_UDID:-}"
+          APP="$PWD/DerivedData/Build/Products/Debug-iphonesimulator/Nearly.app"
+          BUNDLE_ID="com.mtbcoding.Nearly"
+          # Midtown Manhattan, same as MockEventService.nycCenter
+          LAT="40.7580"
+          LON="-73.9855"
+          mkdir -p screenshots
+
+          if [ -z "$UDID" ]; then
+            echo "SIM_UDID was not set; cannot boot a simulator."
+            exit 0
+          fi
+          if [ ! -d "$APP" ]; then
+            echo "Built app not found at $APP"
+            find DerivedData -name "Nearly.app" -print || true
+            exit 0
+          fi
+
+          xcrun simctl boot "$UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl privacy "$UDID" grant location "$BUNDLE_ID"
+          xcrun simctl privacy "$UDID" grant location-always "$BUNDLE_ID" 2>/dev/null || true
+          # Xcode 15+: simctl location <device> set <lat>,<lon>
+          xcrun simctl location "$UDID" set "${LAT},${LON}"
+          # Skip onboarding when possible so Discover can appear in the shot.
+          xcrun simctl spawn "$UDID" defaults write "$BUNDLE_ID" hasCompletedOnboarding -bool true || true
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 15
+          xcrun simctl io "$UDID" screenshot screenshots/01-launch-discover.png
+          ls -la screenshots || true
+
+      - name: Upload simulator screenshots
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: nearly-simulator-screenshots
+          path: screenshots/
+          if-no-files-found: warn
+          retention-days: 14

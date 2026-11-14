@@ -11,6 +11,8 @@ enum DiscoverPhase: Equatable {
     case locationDenied
     /// Not yet prompted — Enable Location → `requestPermission()`.
     case locationNotDetermined
+    /// Authorized, but no fix after a timeout or a terminal location error.
+    case locationUnavailable
     case failed
 }
 
@@ -122,10 +124,13 @@ final class DiscoverViewModel {
     ///   - authorizationStatus: Core Location status — notDetermined → `.locationNotDetermined`;
     ///     denied/restricted → `.locationDenied`; authorized proceeds to fetch.
     ///   - usingDefaultLocation: authorized but no fix yet → wait in `.loading` (don’t fetch NYC).
+    ///   - locationFixFailed: authorized, still no fix, after timeout or a terminal location error
+    ///     → `.locationUnavailable` (never keep skeletons forever).
     func loadEvents(
         near coordinate: CLLocationCoordinate2D,
         usingDefaultLocation: Bool,
-        authorizationStatus: CLAuthorizationStatus
+        authorizationStatus: CLAuthorizationStatus,
+        locationFixFailed: Bool
     ) async {
         loadTask?.cancel()
         loadGeneration += 1
@@ -137,6 +142,7 @@ final class DiscoverViewModel {
                 coordinate: coordinate,
                 usingDefaultLocation: usingDefaultLocation,
                 authorizationStatus: authorizationStatus,
+                locationFixFailed: locationFixFailed,
                 eventService: eventService
             )
         }
@@ -149,6 +155,7 @@ final class DiscoverViewModel {
         coordinate: CLLocationCoordinate2D,
         usingDefaultLocation: Bool,
         authorizationStatus: CLAuthorizationStatus,
+        locationFixFailed: Bool,
         eventService: any EventService
     ) async {
         switch authorizationStatus {
@@ -175,10 +182,14 @@ final class DiscoverViewModel {
         }
 
         // Authorized but no GPS fix yet — keep/show loading; wait for location update.
+        // After timeout or a terminal error, leave skeletons for a retryable locate state.
         if usingDefaultLocation {
             guard token == loadGeneration else { return }
             isRefreshing = false
-            if events.isEmpty {
+            softLoadFailed = false
+            if locationFixFailed {
+                phase = .locationUnavailable
+            } else if events.isEmpty {
                 phase = .loading
             }
             return
