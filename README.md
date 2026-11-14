@@ -30,7 +30,7 @@ On first launch you’ll see a short onboarding screen that explains location ac
 | `empty(radiusMiles)` | Authorized fetch returned none | “Nothing within X mi.” + **Widen radius** |
 | `locationNotDetermined` | Auth not prompted yet | “Location needed.” + **Enable Location** → `requestPermission()` |
 | `locationDenied` | Denied / restricted | “Location needed.” + **Open Settings.** |
-| `failed(retryable)` | Hard API fail with empty list | “Couldn't load events.” + **Retry** |
+| `failed` | Hard API fail with empty list | “Couldn't load events.” + **Retry** |
 
 ## Polish notes
 
